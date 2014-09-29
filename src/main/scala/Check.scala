@@ -24,18 +24,17 @@ case class Check(
     val checks = hosts.map((_, Promise[Check.Result]())).toMap
     val client = new Http().configure(_.setHostnameVerifier(new AllowAllHostnameVerifier() {
       override def verify(hostname: String, session: SSLSession) = {
-        checks(hostname).success(session.getPeerCertificates.headOption.collect {
-          case cert: X509Certificate => 
+        checks(hostname).success(session.getPeerCertificates.headOption match {
+          case Some(cert: X509Certificate) => 
             try {
               cert.checkValidity(new Date(System.currentTimeMillis() + after.toMillis))
               Ok
             } catch {
-              case notyet: CertificateNotYetValidException => NotYet
               case expired: CertificateExpiredException    => Expired
+              case  notyet: CertificateNotYetValidException => NotYet
             }
-        } match {
-          case None => Check.None
-          case Some(c) => c
+          case _ =>
+            Check.None
         })
         super.verify(hostname, session)
       }
